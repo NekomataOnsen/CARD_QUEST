@@ -57,7 +57,7 @@ window.onload = function () {
                     //カウントが６０-scoreを超えたら
                     this.time = 0;
 
-                    const monster = new Sprite(32, 32); //スライムを配置
+                    const monster = new Sprite(106, 150); //スライムを配置
                     monster.image = game.assets[imgUrls[5]]; //スライム画像
                     monster.y = 0; //出現Y座標
                     monster.x = Math.random() * 360; //出現X座標
