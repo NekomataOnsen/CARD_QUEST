@@ -83,7 +83,7 @@ window.onload = function () {
             ///////////////////////////////////////////////////
             //クリックで球を発射
             mainScene.ontouchend = function () {
-                const bomb = new Sprite(16, 16); //爆弾画像のspriteを宣言（数字は縦横サイズ）
+                const bomb = new Sprite(106, 150); //爆弾画像のspriteを宣言（数字は縦横サイズ）
                 bomb.image = game.assets[imgUrls[4]]; //爆弾画像
                 bomb.moveTo(hero.x, hero.y); //自機の位置に持ってくる
                 mainScene.addChild(bomb); //mainSceneシーンに貼る
