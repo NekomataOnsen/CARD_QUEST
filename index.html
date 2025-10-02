@@ -5,51 +5,37 @@
   <meta charset="UTF-8">
   <title>QRコードリーダー</title>
   <style>
-    video, canvas {
+    #reader {
       width: 100%;
       max-width: 400px;
+      margin: auto;
     }
   </style>
 </head>
 <body>
   <h1>QRコードを読み取る</h1>
-  <video id="video" autoplay></video>
-  <canvas id="canvas" hidden></canvas>
-  <p id="output">QRコードの内容がここに表示されます</p>
+  <div id="reader"></div>
+  <p id="result">QRコードの内容がここに表示されます</p>
 
-
+  https://unpkg.com/html5-qrcode</script>
   <script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const output = document.getElementById('output');
-    const context = canvas.getContext('2d');
-
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      .then(stream => {
-        video.srcObject = stream;
-        video.setAttribute("playsinline", true); // iOS対応
-        requestAnimationFrame(scanQRCode);
-      });
-
-    function scanQRCode() {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-        if (code) {
-         内容: ${code.data}`;
-        } else {
-          output.textContent = "QRコードが見つかりません";
-        }
-      }
-      requestAnimationFrame(scanQRCode);
+    function onScanSuccess(decodedText, decodedResult) {
+      document.getElementById("result").innerText = `読み取り結果: ${decodedText}`;
     }
+
+    function onScanFailure(error) {
+      // 読み取り失敗時の処理（必要ならログなど）
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" }, // 背面カメラ
+      {
+        fps: 10,
+        qrbox: { width: 250, height: 250 }
+      },
+      onScanSuccess,
+      onScanFailure
+    );
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr</script>
 </body>
-</html>
-
-
