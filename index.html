@@ -2,14 +2,14 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>QRコードリーダー（制御機能付き）</title>
+  <title>QRコードリーダー（結果分離）</title>
   <style>
     #reader {
       width: 100%;
       max-width: 400px;
       margin: auto;
-      border: 1px solid #ccc; /* 枠を追加してカメラ表示エリアをわかりやすく */
-      min-height: 200px; /* カメラ起動前のスペースを確保 */
+      border: 1px solid #ccc;
+      min-height: 200px;
     }
     .controls {
       text-align: center;
@@ -20,6 +20,12 @@
       margin: 0 5px;
       font-size: 16px;
       cursor: pointer;
+    }
+    /* 結果表示エリアのスタイル */
+    #decoded-data {
+        font-weight: bold;
+        color: darkgreen;
+        word-break: break-all; /* 長いURLなどに対応 */
     }
   </style>
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -33,103 +39,110 @@
 </div>
 
 <div id="reader" style="width: 300px; margin: 20px auto;"></div>
+
 <p id="result">QRコードの内容がここに表示されます</p>
+
+<p>読み取り結果:</p>
+<p id="decoded-data">[読み取られていません]</p>
+
 
 <script>
     // 画面要素を取得
     const resultElement = document.getElementById("result");
+    const decodedDataElement = document.getElementById("decoded-data"); // ⭐ 新しく追加
     const startButton = document.getElementById("start-button");
     const cancelButton = document.getElementById("cancel-button");
 
-    // Html5Qrcodeインスタンスの準備
     let html5QrCode = null;
 
     // 読み取り成功時の処理
     function onScanSuccess(decodedText, decodedResult) {
-        // ④ 読み取り成功したらカメラを停止する処理
         html5QrCode.stop().then(() => {
-            resultElement.innerText = `読み取り成功！: ${decodedText}`;
+            // ⭐ 状態メッセージは「成功しました」を表示
+            resultElement.innerText = `読み取り成功！カメラを停止しました。`;
+            // ⭐ 読み取ったデータ（decodedText）は新しい要素に表示
+            decodedDataElement.innerText = decodedText; 
+            
             console.log("QR Code scanning stopped.");
-            // 成功後、ボタンの状態をリセット
-            resetUI();
+            resetUIButtons();
         }).catch(err => {
-            // 停止に失敗した場合
             resultElement.innerText = `読み取り成功、しかし停止エラー: ${err}`;
+            resetUIButtons();
         });
     }
 
-    // 読み取り失敗時やエラー時の処理
+    // 読み取り失敗時やエラー時の処理（変更なし）
     function onScanFailure(error) {
-      // 読み取りが完了していないが、カメラは動作している状態
+      // ログ出力など
     }
 
     // UIの状態をリセット（初期状態に戻す）
-    function resetUI() {
+    function resetUIButtons() {
         startButton.disabled = false;
         cancelButton.disabled = true;
-        resultElement.innerText = "QRコードの内容がここに表示されます";
-        // readerエリアの表示をリセット（html5-qrcodeが自動でクリーンアップしない場合に対応）
-        document.getElementById("reader").innerHTML = "";
         
-        // Html5Qrcodeインスタンスを再生成可能にする（オプション）
+        // QRコードの内容表示エリアをリセット
+        if (resultElement.innerText !== "カメラが停止されました。") {
+             resultElement.innerText = "QRコードの内容がここに表示されます";
+        }
+       
+        // ⭐ QRコードの内容表示エリアを初期化
+        if (!decodedDataElement.innerText.startsWith("読み取り成功！")) {
+             decodedDataElement.innerText = "[読み取られていません]";
+        }
+        
+        document.getElementById("reader").innerHTML = "";
         html5QrCode = new Html5Qrcode("reader"); 
     }
 
     // ************ 初期化 ************
-    // Html5Qrcodeインスタンスの作成
     if (typeof Html5Qrcode !== 'undefined') {
         html5QrCode = new Html5Qrcode("reader"); 
     } else {
-        resultElement.innerText = "ライブラリの読み込みに失敗しました。ページを確認してください。";
+        resultElement.innerText = "ライブラリの読み込みに失敗しました。";
         startButton.disabled = true;
     }
 
     // ************ イベントリスナー ************
 
-    // ② QRコード読み取り開始ボタンの処理
+    // 読み取り開始ボタンの処理
     startButton.addEventListener('click', () => {
-        // ボタンを無効化し、キャンセルを有効化
         startButton.disabled = true;
         cancelButton.disabled = false;
-        resultElement.innerText = "カメラ起動中... QRコードをかざしてください。";
-        
-        // カメラ起動
+        // ⭐ 状態メッセージ
+        resultElement.innerText = "カメラ起動中... QRコードをかざしてください。"; 
+        // ⭐ データエリアは初期化
+        decodedDataElement.innerText = "[スキャン中...]";
+
         html5QrCode.start(
-            { facingMode: "environment" }, // 背面カメラを使用
-            {
-                fps: 10,
-                qrbox: { width: 250, height: 250 }
-            },
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
             onScanSuccess,
             onScanFailure
         ).catch(err => {
-            // カメラアクセスが拒否されたり、エラーが発生した場合
             resultElement.innerText = `カメラ起動エラー: ${err}`;
-            resetUI();
+            resetUIButtons();
             console.error(err);
         });
     });
 
-    // ③ キャンセルボタン（カメラ停止）の処理
+    // キャンセルボタン（カメラ停止）の処理
     cancelButton.addEventListener('click', () => {
         if (html5QrCode.isScanning) {
             html5QrCode.stop().then(() => {
-                console.log("QR Code scanning cancelled and stopped.");
                 resultElement.innerText = "カメラが停止されました。";
-                resetUI();
+                resetUIButtons();
             }).catch(err => {
-                // 停止に失敗した場合
                 resultElement.innerText = `カメラ停止エラー: ${err}`;
-                resetUI();
+                resetUIButtons();
             });
         } else {
-            // スキャン中でない場合はUIをリセットするだけ
-            resetUI();
+            resetUIButtons();
         }
     });
 
     // ページロード時、最初の状態を設定
-    resetUI(); // ① 初期状態でカメラは停止
+    resetUIButtons(); 
 
 </script>
 </body>
