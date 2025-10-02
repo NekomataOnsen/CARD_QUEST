@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>QRコードリーダー（結果維持）</title>
+  <title>QRコードリーダー（シーン遷移制御）</title>
   <style>
     #reader {
       width: 100%;
@@ -26,25 +26,45 @@
         color: darkgreen;
         word-break: break-all;
     }
+    /* シーン表示エリアのスタイル */
+    #game-scene-area {
+        margin-top: 30px;
+        padding: 20px;
+        border: 2px solid #007bff;
+        text-align: center;
+        min-height: 100px;
+        font-size: 24px;
+        font-weight: bold;
+        color: #007bff;
+    }
+    .hidden {
+        display: none;
+    }
   </style>
   <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
   <h1>QRコードを読み取る</h1>
 
-<div class="controls">
-    <button id="start-button">QRコード読み取り開始</button>
-    <button id="cancel-button" disabled>キャンセルして停止</button>
+<div id="qr-scene">
+    <div class="controls">
+        <button id="start-button">QRコード読み取り開始</button>
+        <button id="cancel-button" disabled>キャンセルして停止</button>
+    </div>
+
+    <div id="reader" style="width: 300px; margin: 20px auto;"></div>
+
+    <p id="result">QRコードの内容がここに表示されます</p>
+    <p>読み取り結果:</p>
+    <p id="decoded-data">[読み取られていません]</p>
 </div>
 
-<div id="reader" style="width: 300px; margin: 20px auto;"></div>
-
-<p id="result">QRコードの内容がここに表示されます</p>
-<p>読み取り結果:</p>
-<p id="decoded-data">[読み取られていません]</p>
-
+<div id="game-scene-area" class="hidden">
+    </div>
 
 <script>
+    const qrScene = document.getElementById("qr-scene");
+    const gameSceneArea = document.getElementById("game-scene-area");
     const resultElement = document.getElementById("result");
     const decodedDataElement = document.getElementById("decoded-data");
     const startButton = document.getElementById("start-button");
@@ -52,7 +72,42 @@
 
     let html5QrCode = null;
 
-    // ⭐ 状態リセット専用の関数 (ボタンとカメラのみ)
+    // **********************************************
+    // ⭐ シーン切り替えロジック
+    // **********************************************
+
+    function changeScene(sceneId) {
+        // QRコード読み取りシーンを非表示
+        qrScene.classList.add('hidden');
+        // ゲームシーンエリアを表示
+        gameSceneArea.classList.remove('hidden');
+
+        // シーンIDに基づいたコンテンツの表示
+        if (sceneId === '0001') {
+            // ⭐ ご要望の "Shene0001_Preview" テキスト表示
+            gameSceneArea.innerText = "Shene0001_Preview";
+        } else {
+            gameSceneArea.innerText = `シーン遷移: ${sceneId} のコンテンツ`;
+        }
+    }
+
+    function returnToQrScene() {
+        // ゲームシーンエリアを非表示
+        gameSceneArea.classList.add('hidden');
+        // QRコード読み取りシーンを表示
+        qrScene.classList.remove('hidden');
+        
+        // QRシーンのリセット
+        resultElement.innerText = "QRコードの内容がここに表示されます";
+        decodedDataElement.innerText = "[読み取られていません]";
+        resetButtons();
+    }
+
+
+    // **********************************************
+    // ⭐ QRコード処理ロジック (変更あり)
+    // **********************************************
+
     function resetButtons() {
         startButton.disabled = false;
         cancelButton.disabled = true;
@@ -60,17 +115,29 @@
         html5QrCode = new Html5Qrcode("reader"); 
     }
 
-    // 読み取り成功時の処理
     function onScanSuccess(decodedText, decodedResult) {
+        // ⭐ QRコードの内容が "0001" だった場合の処理
+        if (decodedText === "0001") {
+            // 1. カメラ停止とメモリ解放
+            html5QrCode.stop().then(() => {
+                console.log("QR Code '0001' found. Camera stopped and resources released.");
+                
+                // 2. Scene0001へ遷移
+                changeScene('0001'); 
+            }).catch(err => {
+                // 停止エラーの場合もシーン遷移は試みる
+                console.error("Camera stop error after successful scan:", err);
+                changeScene('0001');
+            });
+            return; // 処理を終了
+        }
+
+        // "0001" 以外だった場合の通常の成功処理
         html5QrCode.stop().then(() => {
-            // ⭐ 状態メッセージを設定
             resultElement.innerText = `読み取り成功！カメラを停止しました。`;
-            // ⭐ データは新しい要素に表示 (ここが結果を維持するポイント)
             decodedDataElement.innerText = decodedText; 
             
-            console.log("QR Code scanning stopped. Result retained.");
-            
-            // ⭐ 結果は保持したまま、ボタン状態だけリセット
+            console.log(`QR Code found: ${decodedText}. Camera stopped.`);
             resetButtons(); 
         }).catch(err => {
             resultElement.innerText = `読み取り成功、しかし停止エラー: ${err}`;
@@ -78,7 +145,6 @@
         });
     }
 
-    // 読み取り失敗時やエラー時の処理
     function onScanFailure(error) {
       // (実装なし)
     }
@@ -93,12 +159,13 @@
 
     // ************ イベントリスナー ************
 
-    // 読み取り開始ボタンの処理
     startButton.addEventListener('click', () => {
+        // 現在シーンがQRシーンであることを確認
+        returnToQrScene(); 
+
         startButton.disabled = true;
         cancelButton.disabled = false;
         resultElement.innerText = "カメラ起動中... QRコードをかざしてください。";
-        // ⭐ データエリアをスキャン中の表示にリセット
         decodedDataElement.innerText = "[スキャン中...]";
 
         html5QrCode.start(
@@ -108,19 +175,16 @@
             onScanFailure
         ).catch(err => {
             resultElement.innerText = `カメラ起動エラー: ${err}`;
-            decodedDataElement.innerText = "[エラーにより停止]"; // データエリアも更新
+            decodedDataElement.innerText = "[エラーにより停止]";
             resetButtons();
             console.error(err);
         });
     });
 
-    // キャンセルボタン（カメラ停止）の処理
     cancelButton.addEventListener('click', () => {
         if (html5QrCode.isScanning) {
             html5QrCode.stop().then(() => {
                 resultElement.innerText = "カメラが停止され、結果がリセットされました。";
-                
-                // ⭐ キャンセル時はデータも初期化
                 decodedDataElement.innerText = "[読み取られていません]";
                 resetButtons();
             }).catch(err => {
@@ -129,16 +193,12 @@
                 resetButtons();
             });
         } else {
-            // スキャン中でない場合は両方をリセット
-            resultElement.innerText = "QRコードの内容がここに表示されます";
-            decodedDataElement.innerText = "[読み取られていません]";
-            resetButtons();
+            returnToQrScene();
         }
     });
 
     // ページロード時、最初の状態を設定
     resetButtons(); 
-
 </script>
 </body>
 </html>
