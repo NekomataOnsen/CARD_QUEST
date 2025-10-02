@@ -1,43 +1,136 @@
-
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>QRコードリーダー</title>
+  <title>QRコードリーダー（制御機能付き）</title>
   <style>
     #reader {
       width: 100%;
       max-width: 400px;
       margin: auto;
+      border: 1px solid #ccc; /* 枠を追加してカメラ表示エリアをわかりやすく */
+      min-height: 200px; /* カメラ起動前のスペースを確保 */
+    }
+    .controls {
+      text-align: center;
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 0 5px;
+      font-size: 16px;
+      cursor: pointer;
     }
   </style>
+  <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
   <h1>QRコードを読み取る</h1>
 
-<div id="reader" style="width: 300px; margin: auto;"></div>
+<div class="controls">
+    <button id="start-button">QRコード読み取り開始</button>
+    <button id="cancel-button" disabled>キャンセルして停止</button>
+</div>
+
+<div id="reader" style="width: 300px; margin: 20px auto;"></div>
 <p id="result">QRコードの内容がここに表示されます</p>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+    // 画面要素を取得
+    const resultElement = document.getElementById("result");
+    const startButton = document.getElementById("start-button");
+    const cancelButton = document.getElementById("cancel-button");
 
-  <script>
+    // Html5Qrcodeインスタンスの準備
+    let html5QrCode = null;
+
+    // 読み取り成功時の処理
     function onScanSuccess(decodedText, decodedResult) {
-      document.getElementById("result").innerText = `読み取り結果: ${decodedText}`;
+        // ④ 読み取り成功したらカメラを停止する処理
+        html5QrCode.stop().then(() => {
+            resultElement.innerText = `読み取り成功！: ${decodedText}`;
+            console.log("QR Code scanning stopped.");
+            // 成功後、ボタンの状態をリセット
+            resetUI();
+        }).catch(err => {
+            // 停止に失敗した場合
+            resultElement.innerText = `読み取り成功、しかし停止エラー: ${err}`;
+        });
     }
 
+    // 読み取り失敗時やエラー時の処理
     function onScanFailure(error) {
-      // 読み取り失敗時の処理（必要ならログなど）
+      // 読み取りが完了していないが、カメラは動作している状態
     }
 
-    const html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-      { facingMode: "environment" }, // 背面カメラ
-      {
-        fps: 10,
-        qrbox: { width: 250, height: 250 }
-      },
-      onScanSuccess,
-      onScanFailure
-    );
-  </script>
+    // UIの状態をリセット（初期状態に戻す）
+    function resetUI() {
+        startButton.disabled = false;
+        cancelButton.disabled = true;
+        resultElement.innerText = "QRコードの内容がここに表示されます";
+        // readerエリアの表示をリセット（html5-qrcodeが自動でクリーンアップしない場合に対応）
+        document.getElementById("reader").innerHTML = "";
+        
+        // Html5Qrcodeインスタンスを再生成可能にする（オプション）
+        html5QrCode = new Html5Qrcode("reader"); 
+    }
+
+    // ************ 初期化 ************
+    // Html5Qrcodeインスタンスの作成
+    if (typeof Html5Qrcode !== 'undefined') {
+        html5QrCode = new Html5Qrcode("reader"); 
+    } else {
+        resultElement.innerText = "ライブラリの読み込みに失敗しました。ページを確認してください。";
+        startButton.disabled = true;
+    }
+
+    // ************ イベントリスナー ************
+
+    // ② QRコード読み取り開始ボタンの処理
+    startButton.addEventListener('click', () => {
+        // ボタンを無効化し、キャンセルを有効化
+        startButton.disabled = true;
+        cancelButton.disabled = false;
+        resultElement.innerText = "カメラ起動中... QRコードをかざしてください。";
+        
+        // カメラ起動
+        html5QrCode.start(
+            { facingMode: "environment" }, // 背面カメラを使用
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 }
+            },
+            onScanSuccess,
+            onScanFailure
+        ).catch(err => {
+            // カメラアクセスが拒否されたり、エラーが発生した場合
+            resultElement.innerText = `カメラ起動エラー: ${err}`;
+            resetUI();
+            console.error(err);
+        });
+    });
+
+    // ③ キャンセルボタン（カメラ停止）の処理
+    cancelButton.addEventListener('click', () => {
+        if (html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                console.log("QR Code scanning cancelled and stopped.");
+                resultElement.innerText = "カメラが停止されました。";
+                resetUI();
+            }).catch(err => {
+                // 停止に失敗した場合
+                resultElement.innerText = `カメラ停止エラー: ${err}`;
+                resetUI();
+            });
+        } else {
+            // スキャン中でない場合はUIをリセットするだけ
+            resetUI();
+        }
+    });
+
+    // ページロード時、最初の状態を設定
+    resetUI(); // ① 初期状態でカメラは停止
+
+</script>
 </body>
+</html>
