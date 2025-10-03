@@ -1,204 +1,89 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>QRコードリーダー（シーン遷移制御）</title>
-  <style>
-    #reader {
-      width: 100%;
-      max-width: 400px;
-      margin: auto;
-      border: 1px solid #ccc;
-      min-height: 200px;
-    }
-    .controls {
-      text-align: center;
-      margin-top: 20px;
-    }
-    button {
-      padding: 10px 20px;
-      margin: 0 5px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    #decoded-data {
-        font-weight: bold;
-        color: darkgreen;
-        word-break: break-all;
-    }
-    /* シーン表示エリアのスタイル */
-    #game-scene-area {
-        margin-top: 30px;
-        padding: 20px;
-        border: 2px solid #007bff;
-        text-align: center;
-        min-height: 100px;
-        font-size: 24px;
-        font-weight: bold;
-        color: #007bff;
-    }
-    .hidden {
-        display: none;
-    }
-  </style>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+    <meta charset="UTF-8">
+    <title>QRコード生成と回転</title>
+    <style>
+        /* CSSでQRコードの表示エリアを定義 */
+        #qrcode-container {
+            margin-top: 30px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        /* QRコードのキャンバス要素に適用する回転CSS */
+        /* qrcode.jsが生成するのは <canvas> または <img> 要素 */
+        #qrcode-container canvas, 
+        #qrcode-container img {
+            /* 45度回転させる */
+            transform: rotate(45deg); 
+            
+            /* 回転の原点を中央に設定 */
+            transform-origin: center center;
+            
+            /* 少しスペースを取るため、マージンを設定 */
+            margin: 50px; 
+            
+            /* 滑らかなアニメーションのための設定（オプション） */
+            transition: transform 0.3s ease-in-out; 
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 <body>
-  <h1>QRコードを読み取る</h1>
+    <h1>文字列をQRコードに変換・回転</h1>
 
-<div id="qr-scene">
-    <div class="controls">
-        <button id="start-button">QRコード読み取り開始</button>
-        <button id="cancel-button" disabled>キャンセルして停止</button>
+    <div class="input-group">
+        <label for="text-input">変換したい文字列を入力してください:</label><br>
+        <input type="text" id="text-input" value="Hello, Gemini!">
+    </div>
+    
+    <button onclick="generateAndRotateQr()">QRコードを生成・回転</button>
+
+    <div id="qrcode-container">
+        <p>「QRコードを生成・回転」ボタンを押してください。</p>
     </div>
 
-    <div id="reader" style="width: 300px; margin: 20px auto;"></div>
+    <script>
+        function generateAndRotateQr() {
+            const container = document.getElementById('qrcode-container');
+            const inputText = document.getElementById('text-input').value;
 
-    <p id="result">QRコードの内容がここに表示されます</p>
-    <p>読み取り結果:</p>
-    <p id="decoded-data">[読み取られていません]</p>
-</div>
-
-<div id="game-scene-area" class="hidden">
-    </div>
-
-<script>
-    const qrScene = document.getElementById("qr-scene");
-    const gameSceneArea = document.getElementById("game-scene-area");
-    const resultElement = document.getElementById("result");
-    const decodedDataElement = document.getElementById("decoded-data");
-    const startButton = document.getElementById("start-button");
-    const cancelButton = document.getElementById("cancel-button");
-
-    let html5QrCode = null;
-
-    // **********************************************
-    // ⭐ シーン切り替えロジック
-    // **********************************************
-
-    function changeScene(sceneId) {
-        // QRコード読み取りシーンを非表示
-        qrScene.classList.add('hidden');
-        // ゲームシーンエリアを表示
-        gameSceneArea.classList.remove('hidden');
-
-        // シーンIDに基づいたコンテンツの表示
-        if (sceneId === '0001') {
-            // ⭐ ご要望の "Shene0001_Preview" テキスト表示
-            gameSceneArea.innerText = "Shene0001_Preview";
-        } else {
-            gameSceneArea.innerText = `シーン遷移: ${sceneId} のコンテンツ`;
-        }
-    }
-
-    function returnToQrScene() {
-        // ゲームシーンエリアを非表示
-        gameSceneArea.classList.add('hidden');
-        // QRコード読み取りシーンを表示
-        qrScene.classList.remove('hidden');
-        
-        // QRシーンのリセット
-        resultElement.innerText = "QRコードの内容がここに表示されます";
-        decodedDataElement.innerText = "[読み取られていません]";
-        resetButtons();
-    }
-
-
-    // **********************************************
-    // ⭐ QRコード処理ロジック (変更あり)
-    // **********************************************
-
-    function resetButtons() {
-        startButton.disabled = false;
-        cancelButton.disabled = true;
-        document.getElementById("reader").innerHTML = "";
-        html5QrCode = new Html5Qrcode("reader"); 
-    }
-
-    function onScanSuccess(decodedText, decodedResult) {
-        // ⭐ QRコードの内容が "0001" だった場合の処理
-        if (decodedText === "0001") {
-            // 1. カメラ停止とメモリ解放
-            html5QrCode.stop().then(() => {
-                console.log("QR Code '0001' found. Camera stopped and resources released.");
-                
-                // 2. Scene0001へ遷移
-                changeScene('0001'); 
-            }).catch(err => {
-                // 停止エラーの場合もシーン遷移は試みる
-                console.error("Camera stop error after successful scan:", err);
-                changeScene('0001');
-            });
-            return; // 処理を終了
-        }
-
-        // "0001" 以外だった場合の通常の成功処理
-        html5QrCode.stop().then(() => {
-            resultElement.innerText = `読み取り成功！カメラを停止しました。`;
-            decodedDataElement.innerText = decodedText; 
+            // 1. 既存のQRコードをクリア
+            container.innerHTML = '';
             
-            console.log(`QR Code found: ${decodedText}. Camera stopped.`);
-            resetButtons(); 
-        }).catch(err => {
-            resultElement.innerText = `読み取り成功、しかし停止エラー: ${err}`;
-            resetButtons();
-        });
-    }
+            // 入力がない場合はメッセージを表示して終了
+            if (!inputText) {
+                container.innerHTML = '<p>文字列を入力してください。</p>';
+                return;
+            }
 
-    function onScanFailure(error) {
-      // (実装なし)
-    }
-
-    // ************ 初期化 ************
-    if (typeof Html5Qrcode !== 'undefined') {
-        html5QrCode = new Html5Qrcode("reader"); 
-    } else {
-        resultElement.innerText = "ライブラリの読み込みに失敗しました。";
-        startButton.disabled = true;
-    }
-
-    // ************ イベントリスナー ************
-
-    startButton.addEventListener('click', () => {
-        // 現在シーンがQRシーンであることを確認
-        returnToQrScene(); 
-
-        startButton.disabled = true;
-        cancelButton.disabled = false;
-        resultElement.innerText = "カメラ起動中... QRコードをかざしてください。";
-        decodedDataElement.innerText = "[スキャン中...]";
-
-        html5QrCode.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            onScanSuccess,
-            onScanFailure
-        ).catch(err => {
-            resultElement.innerText = `カメラ起動エラー: ${err}`;
-            decodedDataElement.innerText = "[エラーにより停止]";
-            resetButtons();
-            console.error(err);
-        });
-    });
-
-    cancelButton.addEventListener('click', () => {
-        if (html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => {
-                resultElement.innerText = "カメラが停止され、結果がリセットされました。";
-                decodedDataElement.innerText = "[読み取られていません]";
-                resetButtons();
-            }).catch(err => {
-                resultElement.innerText = `カメラ停止エラー: ${err}`;
-                decodedDataElement.innerText = "[エラーにより停止]";
-                resetButtons();
-            });
-        } else {
-            returnToQrScene();
+            // 2. qrcode.jsを使ってQRコードを生成
+            // QrCode(element, options)
+            try {
+                // 生成されたキャンバス（または画像）は、#qrcode-container の子要素として追加されます
+                new QrCode(container, {
+                    text: inputText, // ユーザーが入力した任意の文字列
+                    width: 200,      // QRコードの幅
+                    height: 200,     // QRコードの高さ
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QrCode.CorrectLevel.H // 誤り訂正レベルを高く設定 (H)
+                });
+                
+                // 3. 45度回転の処理
+                // 回転はCSS (styleタグ内の #qrcode-container canvas/img) によって自動的に適用されます。
+                // JavaScript側で特別な操作は不要です。
+                container.insertAdjacentHTML('beforeend', '<p>QRコードを45度回転させて表示しています。</p>');
+                
+            } catch (e) {
+                container.innerHTML = `<p style="color: red;">QRコード生成エラー: ${e.message}</p>`;
+            }
         }
-    });
-
-    // ページロード時、最初の状態を設定
-    resetButtons(); 
-</script>
+    </script>
 </body>
 </html>
