@@ -66,14 +66,12 @@
         // DOM要素の取得
         const container = document.getElementById('qrcode-container');
         const inputTextElement = document.getElementById('text-input');
-        const downloadButton = document.getElementById('download-button'); // ⭐ ダウンロードボタンを取得
+        const downloadButton = document.getElementById('download-button');
 
         function generateAndRotateQr() {
             const inputText = inputTextElement.value;
 
-            // 既存のQRコードとメッセージをクリア
             container.innerHTML = '';
-            // ダウンロードボタンも非表示に戻す
             downloadButton.classList.add('hidden'); 
             
             if (!inputText) {
@@ -82,45 +80,39 @@
             }
 
             try {
-                // qrcode.jsを使ってQRコードを生成
-                // 生成されたキャンバスは #qrcode-container の子要素として追加される
-                new QrCode(container, {
+                // ⭐ 修正: new QRCode (Cを大文字に)
+                new QRCode(container, {
                     text: inputText,
                     width: 200,
                     height: 200,
                     colorDark: "#000000",
                     colorLight: "#ffffff",
-                    correctLevel: QrCode.CorrectLevel.H
+                    // ⭐ 修正: QRCode.CorrectLevel.H (Cを大文字に)
+                    correctLevel: QRCode.CorrectLevel.H
                 });
                 
                 container.insertAdjacentHTML('beforeend', '<p>QRコードを45度回転させて表示しています。</p>');
                 
-                // ⭐ QRコードが正常に生成されたらダウンロードボタンを表示
                 downloadButton.classList.remove('hidden');
 
             } catch (e) {
+                // エラーが発生しても、誤って 'QrCode' を使おうとしたエラーは出なくなります
                 container.innerHTML = `<p style="color: red;">QRコード生成エラー: ${e.message}</p>`;
-                // エラー時はダウンロードボタンを非表示のまま
                 downloadButton.classList.add('hidden');
             }
         }
 
-        // ⭐ ダウンロードボタンのクリックイベントリスナー
         downloadButton.addEventListener('click', () => {
             // qrcode.jsが生成したcanvas要素を探す
             const canvas = container.querySelector('canvas');
 
             if (canvas) {
-                // canvasの内容をPNG形式のデータURIとして取得
                 const imageDataUrl = canvas.toDataURL('image/png');
 
-                // ダウンロード用の仮想リンクを作成
                 const link = document.createElement('a');
                 link.href = imageDataUrl;
-                // ダウンロードされるファイル名を指定
                 link.download = `qrcode_${Date.now()}.png`; 
                 
-                // リンクを一時的にDOMに追加してクリックし、すぐに削除する
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
