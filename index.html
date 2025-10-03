@@ -53,13 +53,13 @@
 
             try {
                 // QrCode(element, options) の呼び出し（コード内容は変更なし）
-                new QrCode(container, {
+                new QRCode(container, {
                     text: inputText,
                     width: 200,
                     height: 200,
                     colorDark: "#000000",
                     colorLight: "#ffffff",
-                    correctLevel: QrCode.CorrectLevel.H
+                    correctLevel: QRCode.CorrectLevel.H
                 });
                 
                 container.insertAdjacentHTML('beforeend', '<p>QRコードを45度回転させて表示しています。</p>');
