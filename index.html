@@ -4,27 +4,18 @@
     <meta charset="UTF-8">
     <title>QRコード生成と回転</title>
     <style>
-        /* CSSでQRコードの表示エリアを定義 */
+        /* CSSは省略（変更なし） */
         #qrcode-container {
             margin-top: 30px;
             padding: 20px;
             text-align: center;
         }
 
-        /* QRコードのキャンバス要素に適用する回転CSS */
-        /* qrcode.jsが生成するのは <canvas> または <img> 要素 */
         #qrcode-container canvas, 
         #qrcode-container img {
-            /* 45度回転させる */
             transform: rotate(45deg); 
-            
-            /* 回転の原点を中央に設定 */
             transform-origin: center center;
-            
-            /* 少しスペースを取るため、マージンを設定 */
             margin: 50px; 
-            
-            /* 滑らかなアニメーションのための設定（オプション） */
             transition: transform 0.3s ease-in-out; 
         }
 
@@ -32,7 +23,7 @@
             margin-bottom: 20px;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
     <h1>文字列をQRコードに変換・回転</h1>
@@ -53,31 +44,24 @@
             const container = document.getElementById('qrcode-container');
             const inputText = document.getElementById('text-input').value;
 
-            // 1. 既存のQRコードをクリア
             container.innerHTML = '';
             
-            // 入力がない場合はメッセージを表示して終了
             if (!inputText) {
                 container.innerHTML = '<p>文字列を入力してください。</p>';
                 return;
             }
 
-            // 2. qrcode.jsを使ってQRコードを生成
-            // QrCode(element, options)
             try {
-                // 生成されたキャンバス（または画像）は、#qrcode-container の子要素として追加されます
+                // QrCode(element, options) の呼び出し（コード内容は変更なし）
                 new QrCode(container, {
-                    text: inputText, // ユーザーが入力した任意の文字列
-                    width: 200,      // QRコードの幅
-                    height: 200,     // QRコードの高さ
+                    text: inputText,
+                    width: 200,
+                    height: 200,
                     colorDark: "#000000",
                     colorLight: "#ffffff",
-                    correctLevel: QrCode.CorrectLevel.H // 誤り訂正レベルを高く設定 (H)
+                    correctLevel: QrCode.CorrectLevel.H
                 });
                 
-                // 3. 45度回転の処理
-                // 回転はCSS (styleタグ内の #qrcode-container canvas/img) によって自動的に適用されます。
-                // JavaScript側で特別な操作は不要です。
                 container.insertAdjacentHTML('beforeend', '<p>QRコードを45度回転させて表示しています。</p>');
                 
             } catch (e) {
