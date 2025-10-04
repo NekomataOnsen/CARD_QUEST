@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>QRコード生成・回転・画像保存</title>
+    <title>QRコード生成・回転・画像結合・保存</title>
     <style>
         #qrcode-container {
             margin-top: 30px;
@@ -10,32 +10,30 @@
             text-align: center;
         }
 
-        #qrcode-container canvas, 
-        #qrcode-container img {
+        #qrcode-container canvas { /* img は qrcode.js が canvas にフォールバックするまで不要 */
             transform: rotate(45deg); 
             transform-origin: center center;
             margin: 50px; 
             transition: transform 0.3s ease-in-out; 
-            /* QRコードが回転しても全体が見えるように */
-            max-width: calc(100% - 100px); /* 親要素の幅からマージン分を引く */
+            max-width: calc(100% - 100px); 
             height: auto;
+            border: 1px solid #ddd; /* QRコードの境界を明確に */
         }
 
         .input-group {
             margin-bottom: 20px;
         }
 
-        /* ダウンロードボタンのスタイル */
         #download-button {
             margin-top: 20px;
             padding: 10px 20px;
             font-size: 16px;
-            background-color: #28a745; /* 緑色 */
+            background-color: #28a745;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            display: none; /* 最初は非表示 */
+            display: none;
         }
         #download-button:hover {
             background-color: #218838;
@@ -43,36 +41,70 @@
         .hidden {
             display: none;
         }
+
+        /* 結合後の画像プレビュー（オプション） */
+        #combined-image-preview {
+            margin-top: 30px;
+            text-align: center;
+        }
+        #combined-image-preview img {
+            max-width: 100%;
+            height: auto;
+            border: 2px dashed #007bff;
+            margin-top: 10px;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
-    <h1>文字列をQRコードに変換・回転・画像保存</h1>
+    <h1>文字列をQRコードに変換・結合・回転・保存</h1>
 
     <div class="input-group">
         <label for="text-input">変換したい文字列を入力してください:</label><br>
-        <input type="text" id="text-input" value="Hello, Gemini!" style="width: 80%; padding: 8px;">
+        <input type="text" id="text-input" value="Hello, Combined QR!" style="width: 80%; padding: 8px;">
     </div>
     
-    <button onclick="generateAndRotateQr()">QRコードを生成・回転</button>
+    <button onclick="generateAndCombineQr()">QRコードを生成・結合・保存</button>
 
     <div id="qrcode-container">
-        <p>「QRコードを生成・回転」ボタンを押してください。</p>
+        <p>ここに生成されたQRコードが表示されます。</p>
     </div>
 
-    <button id="download-button" class="hidden">QRコード画像を保存 (PNG)</button>
+    <div id="combined-image-preview" class="hidden">
+        <h2>結合後の画像プレビュー</h2>
+        <img id="combined-image" alt="結合後のQRコードと背景画像" style="display: none;">
+        <p id="preview-message"></p>
+    </div>
+
+    <button id="download-button" class="hidden">結合済み画像を保存 (PNG)</button>
 
     <script>
-        // DOM要素の取得
         const container = document.getElementById('qrcode-container');
         const inputTextElement = document.getElementById('text-input');
         const downloadButton = document.getElementById('download-button');
+        const combinedImagePreview = document.getElementById('combined-image-preview');
+        const combinedImageElement = document.getElementById('combined-image');
+        const previewMessage = document.getElementById('preview-message');
 
-        function generateAndRotateQr() {
+        const IMAGE_BACKGROUND_PATH = "/image/image4.png"; // ⭐ 背景画像のパス
+
+        // ⭐ 既存画像を読み込むヘルパー関数 (Promiseを返す)
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error(`画像の読み込みに失敗しました: ${src}`));
+                img.src = src;
+            });
+        }
+
+        async function generateAndCombineQr() {
             const inputText = inputTextElement.value;
 
-            container.innerHTML = '';
-            downloadButton.classList.add('hidden'); 
+            container.innerHTML = ''; // QRコード表示エリアをクリア
+            combinedImagePreview.classList.add('hidden'); // プレビューも非表示
+            combinedImageElement.style.display = 'none'; // プレビュー画像も非表示
+            downloadButton.classList.add('hidden'); // ダウンロードボタンも非表示
             
             if (!inputText) {
                 container.innerHTML = '<p>文字列を入力してください。</p>';
@@ -80,46 +112,96 @@
             }
 
             try {
-                // ⭐ 修正: new QRCode (Cを大文字に)
-                new QRCode(container, {
+                previewMessage.innerText = "背景画像を読み込み中...";
+                combinedImagePreview.classList.remove('hidden');
+
+                // 1. 背景画像を読み込む
+                const backgroundImage = await loadImage(IMAGE_BACKGROUND_PATH);
+                previewMessage.innerText = "QRコードを生成中...";
+
+                // 2. qrcode.jsでQRコードを一時的に生成
+                // qrcode.jsは直接canvas要素を返すのではなく、指定したDOM要素にcanvasを追加します。
+                // そのため、一時的なdiv要素を作成し、そこにQRコードを生成します。
+                const tempQrContainer = document.createElement('div');
+                new QRCode(tempQrContainer, {
                     text: inputText,
-                    width: 200,
-                    height: 200,
+                    width: 200,      // QRコードの幅
+                    height: 200,     // QRコードの高さ
                     colorDark: "#000000",
                     colorLight: "#ffffff",
-                    // ⭐ 修正: QRCode.CorrectLevel.H (Cを大文字に)
                     correctLevel: QRCode.CorrectLevel.H
                 });
+
+                const qrCanvas = tempQrContainer.querySelector('canvas');
+                if (!qrCanvas) {
+                    throw new Error("QRコードのCanvas要素が見つかりませんでした。");
+                }
                 
-                container.insertAdjacentHTML('beforeend', '<p>QRコードを45度回転させて表示しています。</p>');
-                
+                // ⭐ HTMLにQRコードのCanvasを表示（回転はCSSで適用）
+                container.appendChild(qrCanvas.cloneNode()); // 結合用とは別に表示用をクローン
+                container.insertAdjacentHTML('beforeend', '<p>ここに生成されたQRコードが表示されます（45度回転）。</p>');
+
+                previewMessage.innerText = "画像を結合中...";
+
+                // 3. 結合用の新しいCanvasを作成
+                const combinedCanvas = document.createElement('canvas');
+                // 結合後の画像のサイズを背景画像に合わせる（または調整）
+                combinedCanvas.width = backgroundImage.width;
+                combinedCanvas.height = backgroundImage.height;
+                const ctx = combinedCanvas.getContext('2d');
+
+                // 4. 背景画像を描画
+                ctx.drawImage(backgroundImage, 0, 0, combinedCanvas.width, combinedCanvas.height);
+
+                // 5. QRコードを描画（回転もCanvas APIで行う）
+                // QRコードを中央に配置する例
+                const qrSize = 200; // QRコードの生成サイズと合わせる
+                const qrX = (combinedCanvas.width - qrSize) / 2;
+                const qrY = (combinedCanvas.height - qrSize) / 2;
+
+                ctx.save(); // 現在のCanvasの状態を保存
+                // 回転の中心をQRコードの中心に設定
+                ctx.translate(qrX + qrSize / 2, qrY + qrSize / 2);
+                ctx.rotate(45 * Math.PI / 180); // 45度をラジアンに変換して回転
+                ctx.drawImage(qrCanvas, -qrSize / 2, -qrSize / 2, qrSize, qrSize);
+                ctx.restore(); // 保存した状態に戻す (回転や移動をリセット)
+
+
+                // 6. 結合された画像をプレビュー表示
+                const combinedDataUrl = combinedCanvas.toDataURL('image/png');
+                combinedImageElement.src = combinedDataUrl;
+                combinedImageElement.style.display = 'block';
+                previewMessage.innerText = "結合されたQRコード画像です。";
+
+                // 7. ダウンロードボタンを表示
                 downloadButton.classList.remove('hidden');
 
             } catch (e) {
-                // エラーが発生しても、誤って 'QrCode' を使おうとしたエラーは出なくなります
-                container.innerHTML = `<p style="color: red;">QRコード生成エラー: ${e.message}</p>`;
+                container.innerHTML = `<p style="color: red;">エラー: ${e.message}</p>`;
+                previewMessage.innerText = `結合エラー: ${e.message}`;
+                console.error("QR生成または画像結合エラー:", e);
+                combinedImagePreview.classList.remove('hidden'); // エラーメッセージ表示のため
                 downloadButton.classList.add('hidden');
             }
         }
 
+        // ダウンロードボタンのクリックイベントリスナー
         downloadButton.addEventListener('click', () => {
-            // qrcode.jsが生成したcanvas要素を探す
-            const canvas = container.querySelector('canvas');
-
-            if (canvas) {
-                const imageDataUrl = canvas.toDataURL('image/png');
-
-                const link = document.createElement('a');
-                link.href = imageDataUrl;
-                link.download = `qrcode_${Date.now()}.png`; 
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-            } else {
-                alert('ダウンロードするQRコードが見つかりません。');
+            const combinedCanvas = document.querySelector('#combined-image-preview canvas'); // 結合されたCanvasを探す
+            if (!combinedCanvas) {
+                alert('ダウンロードする結合済み画像が見つかりません。');
+                return;
             }
+
+            const imageDataUrl = combinedCanvas.toDataURL('image/png');
+
+            const link = document.createElement('a');
+            link.href = imageDataUrl;
+            link.download = `combined_qrcode_${Date.now()}.png`; 
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         });
     </script>
 </body>
