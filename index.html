@@ -1,192 +1,129 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QRコード生成・重ね合わせ・保存</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ボタン配置サンプル</title>
     <style>
-        #qrcode-container {
-            margin-top: 30px;
-            padding: 20px;
-            text-align: center;
+        /* -------------------------------------- */
+        /* CSS: 画面全体のサイズとボタンの基本スタイル */
+        /* -------------------------------------- */
+        body {
+            display: flex;
+            justify-content: center; /* 画面全体を中央に配置 */
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
         }
 
-        #qrcode-container canvas { 
-            transform: rotate(45deg); 
-            transform-origin: center center;
-            margin: 50px; 
-            transition: transform 0.3s ease-in-out; 
-            max-width: calc(100% - 100px); 
-            height: auto;
-            border: 1px solid #ddd;
+        #screen-container {
+            /* 指定された画面サイズ */
+            width: 1080px;
+            height: 1940px;
+            
+            /* 背景と境界線 */
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            
+            /* Flexboxを使用してボタンエリアを画面下部に配置 */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* 要素を下に寄せる */
+            position: relative; /* 子要素（ボタン）の配置基準とする */
         }
 
-        .input-group { margin-bottom: 20px; }
-        #download-button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 5px;
+        .button-style {
+            padding: 15px 30px;
+            font-size: 24px;
+            margin: 10px;
             cursor: pointer;
-            display: none;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            transition: background-color 0.3s;
         }
-        #download-button:hover { background-color: #218838; }
-        .hidden { display: none; }
 
-        #combined-image-preview { margin-top: 30px; text-align: center; }
-        #combined-image-preview img {
-            max-width: 100%;
-            height: auto;
-            border: 2px dashed #007bff;
-            margin-top: 10px;
+        .button-style:hover {
+            opacity: 0.8;
         }
+        
+        /* -------------------------------------- */
+        /* CSS: ボタン配置のためのレイアウト */
+        /* -------------------------------------- */
+        #button-area {
+            /* 画面下部の中央に配置するためのコンテナ */
+            display: flex;
+            justify-content: center; /* ボタン群全体を中央に配置 */
+            width: 100%;
+            padding-bottom: 50px; /* 画面下部からの余白 */
+        }
+
+        #d-pad {
+            /* ボタン1とその周囲の4つのボタンのためのコンテナ */
+            display: grid;
+            /* 5つのボタンを配置するための3x3のグリッドを作成 */
+            /* 中央行・中央列にボタン1を配置 */
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 300px; /* ボタン全体の幅を調整 */
+            height: 300px; /* ボタン全体の高さを調整 */
+            gap: 5px; /* ボタン間の間隔 */
+        }
+        
+        /* ボタンの配置 */
+        #button-center { grid-area: 2 / 2 / 3 / 3; } /* 中央 (ボタン1) */
+        #button-up    { grid-area: 1 / 2 / 2 / 3; } /* 上 (ボタン2) */
+        #button-down  { grid-area: 3 / 2 / 4 / 3; } /* 下 (ボタン3) */
+        #button-left  { grid-area: 2 / 1 / 3 / 2; } /* 左 (ボタン4) */
+        #button-right { grid-area: 2 / 3 / 3 / 4; } /* 右 (ボタン5) */
+
+        /* 各ボタンの色 */
+        #button-center { background-color: #007bff; }
+        #button-up, #button-down, #button-left, #button-right { background-color: #28a745; }
+
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script></head><body>
-    <h1>文字列をQRコードに変換・重ね合わせ・保存</h1>
+</head>
+<body>
 
-    <div class="input-group">
-        <label for="text-input">変換したい文字列を入力してください:</label><br>
-        <input type="text" id="text-input" value="Hello, Overlay QR!" style="width: 80%; padding: 8px;">
+<div id="screen-container">
+    <div id="button-area">
+        <div id="d-pad">
+            <button id="button-up" class="button-style">ボタン2 (上)</button>
+            <button id="button-down" class="button-style">ボタン3 (下)</button>
+            <button id="button-left" class="button-style">ボタン4 (左)</button>
+            <button id="button-right" class="button-style">ボタン5 (右)</button>
+            <button id="button-center" class="button-style">ボタン1 (中央)</button>
+        </div>
     </div>
+</div>
+
+<script>
+    // --------------------------------------
+    // JavaScript: ボタンのイベント設定など
+    // --------------------------------------
+
+    // ボタン要素を取得
+    const btnCenter = document.getElementById('button-center');
+    const btnUp = document.getElementById('button-up');
+    // ... 他のボタンも同様に取得 ...
+
+    // イベントリスナーの追加（例: クリックされたらアラートを表示）
+    btnCenter.addEventListener('click', () => {
+        alert('ボタン1 (中央) が押されました！');
+    });
+
+    btnUp.addEventListener('click', () => {
+        alert('ボタン2 (上) が押されました！');
+    });
     
-    <button onclick="generateAndCombineQr()">QRコードを生成・重ね合わせ・保存</button>
+    // (必要に応じて他のボタンにも同様の処理を追加してください)
 
-    <div id="qrcode-container">
-        <p>ここに生成されたQRコードが表示されます。</p>
-    </div>
+    // 画面サイズ情報の表示（デバッグ用）
+    console.log(`画面コンテナサイズ: 1080px x 1940px`);
 
-    <div id="combined-image-preview" class="hidden">
-        <h2>結合後の画像プレビュー</h2>
-        <img id="combined-image" alt="結合後のQRコードと背景画像" style="display: none;">
-        <p id="preview-message"></p>
-    </div>
+</script>
 
-    <button id="download-button" class="hidden">結合済み画像を保存 (PNG)</button>
-
-    <script>
-        const container = document.getElementById('qrcode-container');
-        const inputTextElement = document.getElementById('text-input');
-        const downloadButton = document.getElementById('download-button');
-        const combinedImagePreview = document.getElementById('combined-image-preview');
-        const combinedImageElement = document.getElementById('combined-image');
-        const previewMessage = document.getElementById('preview-message');
-
-        const IMAGE_BACKGROUND_PATH = "image/image7.png"; // ⭐ 相対パスに修正
-
-        // ⭐ 既存画像を読み込むヘルパー関数 (CORS対応)
-        function loadImage(src) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = "Anonymous"; // ⭐ CORS対応
-                img.onload = () => resolve(img);
-                img.onerror = () => reject(new Error(`画像の読み込みに失敗しました: ${src}`));
-                img.src = src;
-            });
-        }
-
-        async function generateAndCombineQr() {
-            const inputText = inputTextElement.value;
-            const qrSize = 200; // QRコードの固定サイズ
-
-            // UIリセット
-            container.innerHTML = '';
-            combinedImagePreview.classList.add('hidden');
-            combinedImageElement.style.display = 'none';
-            downloadButton.classList.add('hidden'); 
-            
-            if (!inputText) {
-                container.innerHTML = '<p>文字列を入力してください。</p>';
-                return;
-            }
-
-            try {
-                previewMessage.innerText = "背景画像を読み込み中...";
-                combinedImagePreview.classList.remove('hidden');
-
-                // 1. 背景画像を読み込む
-                const backgroundImage = await loadImage(IMAGE_BACKGROUND_PATH);
-                previewMessage.innerText = "QRコードを生成中...";
-
-                // 2. QRコードを一時的に生成
-                const tempQrContainer = document.createElement('div');
-                new QRCode(tempQrContainer, {
-                    text: inputText,
-                    width: qrSize,
-                    height: qrSize,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-
-                const qrCanvas = tempQrContainer.querySelector('canvas');
-                if (!qrCanvas) throw new Error("QRコードのCanvas要素が見つかりませんでした。");
-                
-                // HTMLに表示
-                container.appendChild(qrCanvas.cloneNode());
-                container.insertAdjacentHTML('beforeend', '<p>ここに生成されたQRコードが表示されます（45度回転）。</p>');
-
-                previewMessage.innerText = "画像を結合中...";
-
-                // 3. 結合用の新しいCanvasを作成 (サイズは背景画像に合わせる)
-                const combinedCanvas = document.createElement('canvas');
-                combinedCanvas.width = backgroundImage.width;
-                combinedCanvas.height = backgroundImage.height;
-                const ctx = combinedCanvas.getContext('2d');
-
-                // 4. 背景画像を描画 (ベース)
-                ctx.drawImage(backgroundImage, 0, 0, combinedCanvas.width, combinedCanvas.height);
-
-                // 5. QRコードを描画（回転させて重ねる）
-                // 背景画像の中央に配置する座標を計算
-                const centerX = combinedCanvas.width / 2;
-                const centerY = combinedCanvas.height / 2;
-
-                ctx.save(); // 状態保存
-                
-                // 座標系を中央に移動
-                ctx.translate(centerX, centerY);
-                // 45度回転
-                ctx.rotate(45 * Math.PI / 180); 
-                // 中央を原点 (0, 0) として、QRコードを描画
-                ctx.drawImage(qrCanvas, -qrSize / 2, -qrSize / 2, qrSize, qrSize);
-                
-                ctx.restore(); // 状態復元
-
-                // 6. 結合された画像をプレビュー表示
-                const combinedDataUrl = combinedCanvas.toDataURL('image/png');
-                combinedImageElement.src = combinedDataUrl;
-                combinedImageElement.style.display = 'block';
-                previewMessage.innerText = "結合されたQRコード画像です。";
-
-                // 7. ダウンロードボタンを表示
-                downloadButton.classList.remove('hidden');
-
-            } catch (e) {
-                container.innerHTML = `<p style="color: red;">エラー: ${e.message}</p>`;
-                previewMessage.innerText = `結合エラー: ${e.message}`;
-                console.error("QR生成または画像結合エラー:", e);
-                combinedImagePreview.classList.remove('hidden');
-                downloadButton.classList.add('hidden');
-            }
-        }
-
-        // ダウンロードボタンのクリックイベントリスナー
-        downloadButton.addEventListener('click', () => {
-            const combinedImageElement = document.getElementById('combined-image');
-            if (!combinedImageElement || !combinedImageElement.src) {
-                alert('ダウンロードする結合済み画像が見つかりません。');
-                return;
-            }
-
-            // プレビューのimg要素のsrcからダウンロード
-            const link = document.createElement('a');
-            link.href = combinedImageElement.src; 
-            link.download = `combined_qrcode_${Date.now()}.png`; 
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        });
-    </script></body></html>
+</body>
+</html>
