@@ -1,129 +1,209 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ボタン配置サンプル</title>
-    <style>
-        /* -------------------------------------- */
-        /* CSS: 画面全体のサイズとボタンの基本スタイル */
-        /* -------------------------------------- */
-        body {
-            display: flex;
-            justify-content: center; /* 画面全体を中央に配置 */
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-        }
+  <meta charset="UTF-8">
+  <title>QRコードリーダー（シーン遷移制御）</title>
+  <style>
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      margin: auto;
+      border: 1px solid #ccc;
+      min-height: 200px;
 
-        #screen-container {
-            /* 指定された画面サイズ */
-            width: 1080px;
-            height: 1940px;
-            
-            /* 背景と境界線 */
-            background-color: #ffffff;
-            border: 1px solid #ccc;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            
-            /* Flexboxを使用してボタンエリアを画面下部に配置 */
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end; /* 要素を下に寄せる */
-            position: relative; /* 子要素（ボタン）の配置基準とする */
-        }
+	transform: rotate(45deg);
+     	transform-origin: center center;
 
-        .button-style {
-            padding: 15px 30px;
-            font-size: 24px;
-            margin: 10px;
-            cursor: pointer;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            transition: background-color 0.3s;
-        }
+    }
 
-        .button-style:hover {
-            opacity: 0.8;
-        }
-        
-        /* -------------------------------------- */
-        /* CSS: ボタン配置のためのレイアウト */
-        /* -------------------------------------- */
-        #button-area {
-            /* 画面下部の中央に配置するためのコンテナ */
-            display: flex;
-            justify-content: center; /* ボタン群全体を中央に配置 */
-            width: 100%;
-            padding-bottom: 50px; /* 画面下部からの余白 */
-        }
+	.html5-qrcode-box-decoration {
+    transform: rotate(45deg);
+    }
 
-        #d-pad {
-            /* ボタン1とその周囲の4つのボタンのためのコンテナ */
-            display: grid;
-            /* 5つのボタンを配置するための3x3のグリッドを作成 */
-            /* 中央行・中央列にボタン1を配置 */
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
-            width: 300px; /* ボタン全体の幅を調整 */
-            height: 300px; /* ボタン全体の高さを調整 */
-            gap: 5px; /* ボタン間の間隔 */
-        }
-        
-        /* ボタンの配置 */
-        #button-center { grid-area: 2 / 2 / 3 / 3; } /* 中央 (ボタン1) */
-        #button-up    { grid-area: 1 / 2 / 2 / 3; } /* 上 (ボタン2) */
-        #button-down  { grid-area: 3 / 2 / 4 / 3; } /* 下 (ボタン3) */
-        #button-left  { grid-area: 2 / 1 / 3 / 2; } /* 左 (ボタン4) */
-        #button-right { grid-area: 2 / 3 / 3 / 4; } /* 右 (ボタン5) */
-
-        /* 各ボタンの色 */
-        #button-center { background-color: #007bff; }
-        #button-up, #button-down, #button-left, #button-right { background-color: #28a745; }
-
-    </style>
+    .controls {
+      text-align: center;
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 0 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #decoded-data {
+        font-weight: bold;
+        color: darkgreen;
+        word-break: break-all;
+    }
+    /* シーン表示エリアのスタイル */
+    #game-scene-area {
+        margin-top: 30px;
+        padding: 20px;
+        border: 2px solid #007bff;
+        text-align: center;
+        min-height: 100px;
+        font-size: 24px;
+        font-weight: bold;
+        color: #007bff;
+    }
+    .hidden {
+        display: none;
+    }
+  </style>
+  <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
+  <h1>QRコードを読み取る</h1>
 
-<div id="screen-container">
-    <div id="button-area">
-        <div id="d-pad">
-            <button id="button-up" class="button-style">ボタン2 (上)</button>
-            <button id="button-down" class="button-style">ボタン3 (下)</button>
-            <button id="button-left" class="button-style">ボタン4 (左)</button>
-            <button id="button-right" class="button-style">ボタン5 (右)</button>
-            <button id="button-center" class="button-style">ボタン1 (中央)</button>
-        </div>
+<div id="qr-scene">
+    <div class="controls">
+        <button id="start-button">QRコード読み取り開始</button>
+        <button id="cancel-button" disabled>キャンセルして停止</button>
     </div>
+
+    <div id="reader" style="width: 300px; margin: 20px auto;"></div>
+
+    <p id="result">QRコードの内容がここに表示されます</p>
+    <p>読み取り結果:</p>
+    <p id="decoded-data">[読み取られていません]</p>
 </div>
 
+<div id="game-scene-area" class="hidden">
+    </div>
+
 <script>
-    // --------------------------------------
-    // JavaScript: ボタンのイベント設定など
-    // --------------------------------------
+    const qrScene = document.getElementById("qr-scene");
+    const gameSceneArea = document.getElementById("game-scene-area");
+    const resultElement = document.getElementById("result");
+    const decodedDataElement = document.getElementById("decoded-data");
+    const startButton = document.getElementById("start-button");
+    const cancelButton = document.getElementById("cancel-button");
 
-    // ボタン要素を取得
-    const btnCenter = document.getElementById('button-center');
-    const btnUp = document.getElementById('button-up');
-    // ... 他のボタンも同様に取得 ...
+    let html5QrCode = null;
 
-    // イベントリスナーの追加（例: クリックされたらアラートを表示）
-    btnCenter.addEventListener('click', () => {
-        alert('ボタン1 (中央) が押されました！');
+    // **********************************************
+    // ⭐ シーン切り替えロジック
+    // **********************************************
+
+    function changeScene(sceneId) {
+        // QRコード読み取りシーンを非表示
+        qrScene.classList.add('hidden');
+        // ゲームシーンエリアを表示
+        gameSceneArea.classList.remove('hidden');
+
+        // シーンIDに基づいたコンテンツの表示
+        if (sceneId === '0001') {
+            // ⭐ ご要望の "Shene0001_Preview" テキスト表示
+            gameSceneArea.innerText = "Shene0001_Preview";
+        } else {
+            gameSceneArea.innerText = `シーン遷移: ${sceneId} のコンテンツ`;
+        }
+    }
+
+    function returnToQrScene() {
+        // ゲームシーンエリアを非表示
+        gameSceneArea.classList.add('hidden');
+        // QRコード読み取りシーンを表示
+        qrScene.classList.remove('hidden');
+        
+        // QRシーンのリセット
+        resultElement.innerText = "QRコードの内容がここに表示されます";
+        decodedDataElement.innerText = "[読み取られていません]";
+        resetButtons();
+    }
+
+
+    // **********************************************
+    // ⭐ QRコード処理ロジック (変更あり)
+    // **********************************************
+
+    function resetButtons() {
+        startButton.disabled = false;
+        cancelButton.disabled = true;
+        document.getElementById("reader").innerHTML = "";
+        html5QrCode = new Html5Qrcode("reader"); 
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // ⭐ QRコードの内容が "0001" だった場合の処理
+        if (decodedText === "0001") {
+            // 1. カメラ停止とメモリ解放
+            html5QrCode.stop().then(() => {
+                console.log("QR Code '0001' found. Camera stopped and resources released.");
+                
+                // 2. Scene0001へ遷移
+                changeScene('0001'); 
+            }).catch(err => {
+                // 停止エラーの場合もシーン遷移は試みる
+                console.error("Camera stop error after successful scan:", err);
+                changeScene('0001');
+            });
+            return; // 処理を終了
+        }
+
+        // "0001" 以外だった場合の通常の成功処理
+        html5QrCode.stop().then(() => {
+            resultElement.innerText = `読み取り成功！カメラを停止しました。`;
+            decodedDataElement.innerText = decodedText; 
+            
+            console.log(`QR Code found: ${decodedText}. Camera stopped.`);
+            resetButtons(); 
+        }).catch(err => {
+            resultElement.innerText = `読み取り成功、しかし停止エラー: ${err}`;
+            resetButtons();
+        });
+    }
+
+    function onScanFailure(error) {
+      // (実装なし)
+    }
+
+    // ************ 初期化 ************
+    if (typeof Html5Qrcode !== 'undefined') {
+        html5QrCode = new Html5Qrcode("reader"); 
+    } else {
+        resultElement.innerText = "ライブラリの読み込みに失敗しました。";
+        startButton.disabled = true;
+    }
+
+    // ************ イベントリスナー ************
+
+    startButton.addEventListener('click', () => {
+        // 現在シーンがQRシーンであることを確認
+        returnToQrScene(); 
+
+        startButton.disabled = true;
+        cancelButton.disabled = false;
+        resultElement.innerText = "カメラ起動中... QRコードをかざしてください。";
+        decodedDataElement.innerText = "[スキャン中...]";
+
+        html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            onScanSuccess,
+            onScanFailure
+        ).catch(err => {
+            resultElement.innerText = `カメラ起動エラー: ${err}`;
+            decodedDataElement.innerText = "[エラーにより停止]";
+            resetButtons();
+            console.error(err);
+        });
     });
 
-    btnUp.addEventListener('click', () => {
-        alert('ボタン2 (上) が押されました！');
+    cancelButton.addEventListener('click', () => {
+        if (html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                resultElement.innerText = "カメラが停止され、結果がリセットされました。";
+                decodedDataElement.innerText = "[読み取られていません]";
+                resetButtons();
+            }).catch(err => {
+                resultElement.innerText = `カメラ停止エラー: ${err}`;
+                decodedDataElement.innerText = "[エラーにより停止]";
+                resetButtons();
+            });
+        } else {
+            returnToQrScene();
+        }
     });
-    
-    // (必要に応じて他のボタンにも同様の処理を追加してください)
 
-    // 画面サイズ情報の表示（デバッグ用）
-    console.log(`画面コンテナサイズ: 1080px x 1940px`);
-
-</script>
-
-</body>
-</html>
+    // ページロード時、最初の状態を設定
