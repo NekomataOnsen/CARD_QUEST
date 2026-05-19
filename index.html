@@ -3,17 +3,19 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>センサー + グラフ + ターゲット</title>
+<title>センサーゲーム</title>
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body { text-align:center; font-family:sans-serif; }
 
-canvas { max-width: 90%; margin: 10px; }
+canvas {
+  max-width: 90%;
+  margin: 10px;
+}
 
-/* 中央ターゲットマーカー */
+/* 中央マーカー */
 #crosshair {
   position: fixed;
   top: 50%;
@@ -21,12 +23,12 @@ canvas { max-width: 90%; margin: 10px; }
   width: 30px;
   height: 30px;
   transform: translate(-50%, -50%);
-  border: 2px solid lime;
+  border: 3px solid lime;
   border-radius: 50%;
   pointer-events: none;
 }
 
-/* ランダムターゲット */
+/* 動くターゲット */
 #target {
   position: fixed;
   width: 20px;
@@ -36,9 +38,10 @@ canvas { max-width: 90%; margin: 10px; }
 }
 </style>
 </head>
+
 <body>
 
-<h2>スマホセンサーグラフ + ターゲット</h2>
+<h2>スマホセンサー エイムゲーム</h2>
 
 <button id="startBtn">開始</button>
 <button id="resetBtn">リセット</button>
@@ -51,7 +54,7 @@ canvas { max-width: 90%; margin: 10px; }
 <canvas id="oriChart"></canvas>
 
 <script>
-// ------------------- データ -------------------
+// ===== データ =====
 let acc={x:0,y:0,z:0};
 let vel={x:0,y:0,z:0};
 let pos={x:0,y:0,z:0};
@@ -60,14 +63,12 @@ let ori={alpha:0,beta:0,gamma:0};
 let offset={acc:{},pos:{},ori:{}};
 let lastTime=null;
 
-// グラフ用データ
-const maxData=50;
-let accData={x:[],y:[],z:[]};
-let posData={x:[],y:[],z:[]};
-let oriData={x:[],y:[],z:[]};
+// ターゲット位置
+let targetPos={x:200,y:200};
 
-// ------------------- グラフ作成 -------------------
-function createChart(ctx,label){
+// ===== グラフ =====
+const maxData=50;
+function createChart(ctx){
   return new Chart(ctx,{
     type:'line',
     data:{
@@ -78,24 +79,28 @@ function createChart(ctx,label){
         {label:'Z',data:[],borderColor:'blue'}
       ]
     },
-    options:{animation:false,scales:{y:{beginAtZero:true}}}
+    options:{animation:false}
   });
 }
-const accChart=createChart(document.getElementById('accChart'),"加速度");
-const posChart=createChart(document.getElementById('posChart'),"位置");
-const oriChart=createChart(document.getElementById('oriChart'),"角度");
 
-// ------------------- センサー開始 -------------------
+const accChart=createChart(document.getElementById('accChart'));
+const posChart=createChart(document.getElementById('posChart'));
+const oriChart=createChart(document.getElementById('oriChart'));
+
+// ===== センサー開始 =====
 document.getElementById("startBtn").onclick = async ()=>{
   if(DeviceMotionEvent.requestPermission){
     const p=await DeviceMotionEvent.requestPermission();
-    if(p!=='granted')return;
+    if(p!=='granted'){
+      alert("許可が必要です");
+      return;
+    }
   }
   window.addEventListener("devicemotion",motion);
   window.addEventListener("deviceorientation",orientation);
-  moveTarget();
 };
 
+// ===== センサー処理 =====
 function motion(e){
   const now=Date.now();
   if(!lastTime) lastTime=now;
@@ -115,6 +120,8 @@ function motion(e){
   pos.z+=vel.z*dt;
 
   updateCharts();
+
+  updateTargetBySensor(); // ←追加
   checkHit();
 }
 
@@ -124,14 +131,49 @@ function orientation(e){
   ori.gamma=e.gamma||0;
 }
 
-// ------------------- グラフ更新 -------------------
-function pushData(arr,val){
+// ===== ターゲットを傾きで動かす =====
+const target=document.getElementById("target");
+
+function updateTargetBySensor(){
+  let x = window.innerWidth/2 + ori.gamma * 5;
+  let y = window.innerHeight/2 + ori.beta * 5;
+
+  // 画面制限
+  x = Math.max(0, Math.min(window.innerWidth, x));
+  y = Math.max(0, Math.min(window.innerHeight, y));
+
+  // なめらか移動
+  targetPos.x += (x - targetPos.x)*0.2;
+  targetPos.y += (y - targetPos.y)*0.2;
+
+  target.style.left = targetPos.x + "px";
+  target.style.top = targetPos.y + "px";
+}
+
+// ===== 当たり判定 =====
+const crosshair=document.getElementById("crosshair");
+
+function checkHit(){
+  const cx = window.innerWidth/2;
+  const cy = window.innerHeight/2;
+
+  const dx = cx - targetPos.x;
+  const dy = cy - targetPos.y;
+
+  if(Math.abs(dx)<20 && Math.abs(dy)<20){
+    crosshair.style.borderColor="red";
+  }else{
+    crosshair.style.borderColor="lime";
+  }
+}
+
+// ===== グラフ更新 =====
+function push(arr,val){
   arr.push(val);
   if(arr.length>maxData) arr.shift();
 }
 
 function updateCharts(){
-  // データ取得
   let ax=acc.x-(offset.acc.x||0);
   let ay=acc.y-(offset.acc.y||0);
   let az=acc.z-(offset.acc.z||0);
@@ -144,74 +186,29 @@ function updateCharts(){
   let oy=ori.gamma-(offset.ori.gamma||0);
   let oz=ori.alpha-(offset.ori.alpha||0);
 
-  pushData(accData.x,ax);
-  pushData(accData.y,ay);
-  pushData(accData.z,az);
+  push(accChart.data.datasets[0].data,ax);
+  push(accChart.data.datasets[1].data,ay);
+  push(accChart.data.datasets[2].data,az);
 
-  pushData(posData.x,px);
-  pushData(posData.y,py);
-  pushData(posData.z,pz);
+  push(posChart.data.datasets[0].data,px);
+  push(posChart.data.datasets[1].data,py);
+  push(posChart.data.datasets[2].data,pz);
 
-  pushData(oriData.x,ox);
-  pushData(oriData.y,oy);
-  pushData(oriData.z,oz);
+  push(oriChart.data.datasets[0].data,ox);
+  push(oriChart.data.datasets[1].data,oy);
+  push(oriChart.data.datasets[2].data,oz);
 
-  updateChart(accChart,accData);
-  updateChart(posChart,posData);
-  updateChart(oriChart,oriData);
+  accChart.update();
+  posChart.update();
+  oriChart.update();
 }
 
-function updateChart(chart,data){
-  chart.data.labels.push('');
-  if(chart.data.labels.length>maxData) chart.data.labels.shift();
-
-  chart.data.datasets[0].data=data.x;
-  chart.data.datasets[1].data=data.y;
-  chart.data.datasets[2].data=data.z;
-
-  chart.update();
-}
-
-// ------------------- リセット -------------------
-document.getElementById("resetBtn").onclick=()=>{
+// ===== リセット =====
+document.getElementById("resetBtn").onclick = ()=>{
   offset.acc={...acc};
   offset.pos={...pos};
   offset.ori={...ori};
 };
-
-// ------------------- ターゲット -------------------
-const target=document.getElementById("target");
-const crosshair=document.getElementById("crosshair");
-
-let targetPos={x:0,y:0};
-
-function moveTarget(){
-  targetPos.x=Math.random()*window.innerWidth;
-  targetPos.y=Math.random()*window.innerHeight;
-
-  target.style.left=targetPos.x+'px';
-  target.style.top=targetPos.y+'px';
-}
-
-// ------------------- 当たり判定 -------------------
-function checkHit(){
-  // 傾き → 画面座標変換（簡易）
-  let cx=window.innerWidth/2 + ori.gamma*5;
-  let cy=window.innerHeight/2 + ori.beta*5;
-
-  const dx=cx-targetPos.x;
-  const dy=cy-targetPos.y;
-
-  if(Math.abs(dx)<30 && Math.abs(dy)<30){
-    crosshair.style.borderColor='red';
-    setTimeout(()=>{
-      moveTarget();
-      crosshair.style.borderColor='lime';
-    },500);
-  }else{
-    crosshair.style.borderColor='lime';
-  }
-}
 </script>
 
 </body>
