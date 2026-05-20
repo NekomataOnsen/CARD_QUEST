@@ -110,26 +110,39 @@ function orientation(e){
 }
 
 // ===== 傾きでターゲット移動 =====
+
 function updateTargetByTilt(){
-  let centerX=window.innerWidth/2;
-  let centerY=window.innerHeight/2;
-  let radius=300;
-  let sensitivity=5;
+  let cx = window.innerWidth / 2;
+  let cy = window.innerHeight / 2;
+  let radius = 300;
 
-  let dx = (ori.gamma - (offset.ori.gamma||0)) * sensitivity;
-  let dy = ((ori.beta-90) - (offset.ori.beta||0)) * sensitivity;
+  let sensitivity = 3; // 下げて安定化
 
-  // 視点っぽく逆方向
-  let targetX = centerX - dx;
-  let targetY = centerY - dy;
+  // ✔ オフセット補正
+  let gx = ori.gamma - (offset.ori.gamma || 0);
+  let by = ori.beta - (offset.ori.beta || 0);
 
-  // なめらか補間
-  targetPos.x += (targetX - targetPos.x)*0.2;
-  targetPos.y += (targetY - targetPos.y)*0.2;
+  // ✅ 垂直補正（重要）
+  by = by - 90;
 
-  // ランダム揺れ（元の要件）
-  targetVel.x += (Math.random()-0.5)*1.5;
-  targetVel.y += (Math.random()-0.5)*1.5;
+  // ✅ 入力制限（暴走防止）←ココ重要！
+  gx = Math.max(-30, Math.min(30, gx));
+  by = Math.max(-30, Math.min(30, by));
+
+  let dx = gx * sensitivity;
+  let dy = by * sensitivity;
+
+  // 視点反転
+  let targetX = cx - dx;
+  let targetY = cy - dy;
+
+  // なめらか移動
+  targetPos.x += (targetX - targetPos.x) * 0.15;
+  targetPos.y += (targetY - targetPos.y) * 0.15;
+
+  // ランダム動き
+  targetVel.x += (Math.random() - 0.5) * 1.2;
+  targetVel.y += (Math.random() - 0.5) * 1.2;
 
   targetVel.x *= 0.95;
   targetVel.y *= 0.95;
@@ -137,32 +150,39 @@ function updateTargetByTilt(){
   targetPos.x += targetVel.x;
   targetPos.y += targetVel.y;
 
-  // 半径制限
-  let dx2=targetPos.x-centerX;
-  let dy2=targetPos.y-centerY;
-  let dist=Math.sqrt(dx2*dx2+dy2*dy2);
+  // 円制限
+  let dx2 = targetPos.x - cx;
+  let dy2 = targetPos.y - cy;
+  let dist = Math.sqrt(dx2*dx2 + dy2*dy2);
 
-  if(dist>radius){
-    let ang=Math.atan2(dy2,dx2);
-    targetPos.x=centerX+Math.cos(ang)*radius;
-    targetPos.y=centerY+Math.sin(ang)*radius;
+  if(dist > radius){
+    let ang = Math.atan2(dy2, dx2);
+    targetPos.x = cx + Math.cos(ang) * radius;
+    targetPos.y = cy + Math.sin(ang) * radius;
   }
 
-  target.style.left=targetPos.x+"px";
-  target.style.top=targetPos.y+"px";
+  target.style.left = targetPos.x + "px";
+  target.style.top  = targetPos.y + "px";
 }
 
+
 // ===== 当たり判定 =====
+
 function checkHit(){
-  let cx=window.innerWidth/2;
-  let cy=window.innerHeight/2;
+  let cx = window.innerWidth / 2;
+  let cy = window.innerHeight / 2;
 
-  let dx=cx-targetPos.x;
-  let dy=cy-targetPos.y;
+  let dx = cx - targetPos.x;
+  let dy = cy - targetPos.y;
 
-  isHit=(Math.abs(dx)<20 && Math.abs(dy)<20);
+  let distance = Math.sqrt(dx*dx + dy*dy);
 
-  crosshair.style.borderColor = isHit ? "red":"lime";
+  // ✅ 半径判定に変更（重要）
+  isHit = distance < 25;
+
+  crosshair.style.borderColor = isHit ? "red" : "lime";
+}
+
 }
 
 // ===== タップ =====
