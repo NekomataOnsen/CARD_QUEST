@@ -3,17 +3,16 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>傾きターゲットゲーム</title>
+<title>完成版エイムゲーム</title>
 
-<!-- ✅ Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { text-align:center; font-family:sans-serif; margin:0; }
+body { margin:0; text-align:center; font-family:sans-serif; }
 
 canvas { max-width:90%; margin:10px; }
 
-/* ✅ 中央固定（完全固定） */
+/* ✅ マーカー完全固定 */
 #crosshair{
   position:fixed;
   top:50%;
@@ -41,6 +40,7 @@ canvas { max-width:90%; margin:10px; }
   left:10px;
   font-size:20px;
   background:white;
+  padding:5px;
 }
 </style>
 </head>
@@ -64,10 +64,8 @@ canvas { max-width:90%; margin:10px; }
 // ===== センサー =====
 let acc={x:0,y:0,z:0};
 let ori={alpha:0,beta:0,gamma:0};
+let offset={ori:{}};
 
-let offset={acc:{},ori:{}};
-
-// ===== 状態 =====
 let score=0;
 let isHit=false;
 
@@ -76,7 +74,6 @@ let targetPos={
   x:window.innerWidth/2,
   y:window.innerHeight/2
 };
-
 let targetVel={x:0,y:0};
 
 const target=document.getElementById("target");
@@ -92,14 +89,14 @@ document.getElementById("startBtn").onclick = async ()=>{
   window.addEventListener("deviceorientation",orientation);
 };
 
-// ===== センサー処理 =====
+// ===== センサー取得 =====
 function motion(e){
   acc.x=e.accelerationIncludingGravity.x||0;
   acc.y=e.accelerationIncludingGravity.y||0;
   acc.z=e.accelerationIncludingGravity.z||0;
 
   updateCharts();
-  updateTargetByTilt();
+  updateTarget();
   checkHit();
 }
 
@@ -109,40 +106,42 @@ function orientation(e){
   ori.gamma=e.gamma||0;
 }
 
-// ===== 傾きでターゲット移動 =====
-
-function updateTargetByTilt(){
-  let cx = window.innerWidth / 2;
-  let cy = window.innerHeight / 2;
+// ===== ✅ 傾きでターゲット移動（安定版） =====
+function updateTarget(){
+  let cx = window.innerWidth/2;
+  let cy = window.innerHeight/2;
   let radius = 300;
 
-  let sensitivity = 3; // 下げて安定化
+  let sensitivity = 3;
 
-  // ✔ オフセット補正
   let gx = ori.gamma - (offset.ori.gamma || 0);
   let by = ori.beta - (offset.ori.beta || 0);
 
-  // ✅ 垂直補正（重要）
+  // ✅ 垂直補正
   by = by - 90;
 
-  // ✅ 入力制限（暴走防止）←ココ重要！
+  // ✅ 暴走防止（超重要）
   gx = Math.max(-30, Math.min(30, gx));
   by = Math.max(-30, Math.min(30, by));
+
+  // ✅ 微振動カット
+  if(Math.abs(gx)<1) gx=0;
+  if(Math.abs(by)<1) by=0;
 
   let dx = gx * sensitivity;
   let dy = by * sensitivity;
 
-  // 視点反転
+  // 視点移動
   let targetX = cx - dx;
   let targetY = cy - dy;
 
-  // なめらか移動
-  targetPos.x += (targetX - targetPos.x) * 0.15;
-  targetPos.y += (targetY - targetPos.y) * 0.15;
+  // なめらか補間
+  targetPos.x += (targetX - targetPos.x)*0.15;
+  targetPos.y += (targetY - targetPos.y)*0.15;
 
   // ランダム動き
-  targetVel.x += (Math.random() - 0.5) * 1.2;
-  targetVel.y += (Math.random() - 0.5) * 1.2;
+  targetVel.x += (Math.random()-0.5)*1.2;
+  targetVel.y += (Math.random()-0.5)*1.2;
 
   targetVel.x *= 0.95;
   targetVel.y *= 0.95;
@@ -150,42 +149,37 @@ function updateTargetByTilt(){
   targetPos.x += targetVel.x;
   targetPos.y += targetVel.y;
 
-  // 円制限
+  // ✅ 円制限
   let dx2 = targetPos.x - cx;
   let dy2 = targetPos.y - cy;
   let dist = Math.sqrt(dx2*dx2 + dy2*dy2);
 
   if(dist > radius){
-    let ang = Math.atan2(dy2, dx2);
-    targetPos.x = cx + Math.cos(ang) * radius;
-    targetPos.y = cy + Math.sin(ang) * radius;
+    let ang = Math.atan2(dy2,dx2);
+    targetPos.x = cx + Math.cos(ang)*radius;
+    targetPos.y = cy + Math.sin(ang)*radius;
   }
 
   target.style.left = targetPos.x + "px";
   target.style.top  = targetPos.y + "px";
 }
 
-
-// ===== 当たり判定 =====
-
+// ===== ✅ 当たり判定（距離ベース） =====
 function checkHit(){
-  let cx = window.innerWidth / 2;
-  let cy = window.innerHeight / 2;
+  let cx = window.innerWidth/2;
+  let cy = window.innerHeight/2;
 
   let dx = cx - targetPos.x;
   let dy = cy - targetPos.y;
 
-  let distance = Math.sqrt(dx*dx + dy*dy);
+  let dist = Math.sqrt(dx*dx + dy*dy);
 
-  // ✅ 半径判定に変更（重要）
-  isHit = distance < 25;
+  isHit = dist < 25;
 
-  crosshair.style.borderColor = isHit ? "red" : "lime";
+  crosshair.style.borderColor = isHit ? "red":"lime";
 }
 
-}
-
-// ===== タップ =====
+// ===== ✅ タップ =====
 document.body.addEventListener("click",()=>{
   if(isHit){
     score++;
@@ -194,24 +188,23 @@ document.body.addEventListener("click",()=>{
   }
 });
 
-// ===== 瞬間移動 =====
+// ===== ✅ 瞬間移動 =====
 function teleportTarget(){
-  let cx=window.innerWidth/2;
-  let cy=window.innerHeight/2;
-  let r=300;
+  let cx = window.innerWidth/2;
+  let cy = window.innerHeight/2;
+  let r = 300;
 
-  let ang=Math.random()*Math.PI*2;
-  let dist=Math.random()*r;
+  let ang = Math.random()*Math.PI*2;
+  let dist = Math.random()*r;
 
-  targetPos.x=cx+Math.cos(ang)*dist;
-  targetPos.y=cy+Math.sin(ang)*dist;
+  targetPos.x = cx + Math.cos(ang)*dist;
+  targetPos.y = cy + Math.sin(ang)*dist;
 
   targetVel={x:0,y:0};
 }
 
 // ===== グラフ =====
 const maxData=50;
-
 function createChart(ctx){
   return new Chart(ctx,{
     type:'line',
@@ -248,9 +241,8 @@ function updateCharts(){
   oriChart.update();
 }
 
-// ===== リセット =====
+// ===== ✅ リセット =====
 document.getElementById("resetBtn").onclick=()=>{
-  offset.acc={...acc};
   offset.ori={...ori};
 };
 </script>
