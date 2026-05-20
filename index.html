@@ -13,14 +13,18 @@ body { text-align:center; font-family:sans-serif;}
 canvas { max-width:90%; margin:10px; }
 
 /* 照準（動く） */
+
 #crosshair{
   position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
   width:30px;
   height:30px;
   border:3px solid lime;
   border-radius:50%;
-  transform:translate(-50%,-50%);
 }
+
 
 /* ターゲット */
 #target{
@@ -157,50 +161,56 @@ function updateAimByTilt(){
 }
 
 // ===== ターゲットランダム移動 =====
+
 function updateTargetMove(){
-  let centerX=window.innerWidth/2;
-  let centerY=window.innerHeight/2;
-  let radius=300;
+  let centerX = window.innerWidth/2;
+  let centerY = window.innerHeight/2;
+  let radius = 300;
 
-  targetVel.x+=(Math.random()-0.5)*2;
-  targetVel.y+=(Math.random()-0.5)*2;
+  let sensitivity = 5;
 
-  targetVel.x*=0.95;
-  targetVel.y*=0.95;
+  // 傾き（垂直基準）
+  let dx = (ori.gamma - (offset.ori.gamma || 0)) * sensitivity;
+  let dy = ((ori.beta - 90) - (offset.ori.beta || 0)) * sensitivity;
 
-  targetPos.x+=targetVel.x;
-  targetPos.y+=targetVel.y;
+  // ★ 逆方向に動かす（視点っぽくする）
+  let targetX = centerX - dx;
+  let targetY = centerY - dy;
 
-  let dx=targetPos.x-centerX;
-  let dy=targetPos.y-centerY;
-  let dist=Math.sqrt(dx*dx+dy*dy);
+  // なめらか補間
+  targetPos.x += (targetX - targetPos.x) * 0.2;
+  targetPos.y += (targetY - targetPos.y) * 0.2;
 
-  if(dist>radius){
-    let angle=Math.atan2(dy,dx);
-    targetPos.x=centerX+Math.cos(angle)*radius;
-    targetPos.y=centerY+Math.sin(angle)*radius;
+  // 半径制限（円内）
+  let diffX = targetPos.x - centerX;
+  let diffY = targetPos.y - centerY;
+  let dist = Math.sqrt(diffX*diffX + diffY*diffY);
+
+  if(dist > radius){
+    let angle = Math.atan2(diffY, diffX);
+    targetPos.x = centerX + Math.cos(angle) * radius;
+    targetPos.y = centerY + Math.sin(angle) * radius;
   }
 
-  target.style.left=targetPos.x+"px";
-  target.style.top=targetPos.y+"px";
+  target.style.left = targetPos.x + "px";
+  target.style.top  = targetPos.y + "px";
 }
+
 
 // ===== 当たり判定 =====
-function checkHit(){
-  let dx=aimPos.x-targetPos.x;
-  let dy=aimPos.y-targetPos.y;
-  isHit=(Math.abs(dx)<20 && Math.abs(dy)<20);
 
-  crosshair.style.borderColor=isHit?"red":"lime";
+function checkHit(){
+  let centerX = window.innerWidth/2;
+  let centerY = window.innerHeight/2;
+
+  let dx = centerX - targetPos.x;
+  let dy = centerY - targetPos.y;
+
+  isHit = Math.abs(dx) < 20 && Math.abs(dy) < 20;
+
+  crosshair.style.borderColor = isHit ? "red" : "lime";
 }
 
-// ===== タップ =====
-document.body.addEventListener("click",()=>{
-  if(isHit){
-    score++;
-    document.getElementById("score").innerText="Score: "+score;
-    teleportTarget();
-  }
 });
 
 // ===== 瞬間移動 =====
