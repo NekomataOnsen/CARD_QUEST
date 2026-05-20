@@ -3,17 +3,15 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>センサーゲーム</title>
+<title>センサーゲーム完成版</title>
 
+<!-- ✅ Chart.js 正しい読み込み -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body { text-align:center; font-family:sans-serif; }
 
-canvas {
-  max-width: 90%;
-  margin: 10px;
-}
+canvas { max-width: 90%; margin: 10px; }
 
 /* 中央マーカー */
 #crosshair {
@@ -25,10 +23,9 @@ canvas {
   transform: translate(-50%, -50%);
   border: 3px solid lime;
   border-radius: 50%;
-  pointer-events: none;
 }
 
-/* 動くターゲット */
+/* ターゲット */
 #target {
   position: fixed;
   width: 20px;
@@ -36,15 +33,25 @@ canvas {
   background: blue;
   border-radius: 50%;
 }
+
+/* スコア */
+#score {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  font-size: 20px;
+}
 </style>
 </head>
 
 <body>
 
-<h2>スマホセンサー エイムゲーム</h2>
+<h2>スマホエイムゲーム</h2>
 
 <button id="startBtn">開始</button>
 <button id="resetBtn">リセット</button>
+
+<div id="score">Score: 0</div>
 
 <div id="crosshair"></div>
 <div id="target"></div>
@@ -63,11 +70,20 @@ let ori={alpha:0,beta:0,gamma:0};
 let offset={acc:{},pos:{},ori:{}};
 let lastTime=null;
 
-// ターゲット位置
-let targetPos={x:200,y:200};
+let score=0;
+let isHit=false;
+
+// ===== ターゲット位置 =====
+let targetPos={
+  x:window.innerWidth/2,
+  y:window.innerHeight/2
+};
+
+let targetVel={x:0,y:0};
 
 // ===== グラフ =====
 const maxData=50;
+
 function createChart(ctx){
   return new Chart(ctx,{
     type:'line',
@@ -91,16 +107,13 @@ const oriChart=createChart(document.getElementById('oriChart'));
 document.getElementById("startBtn").onclick = async ()=>{
   if(DeviceMotionEvent.requestPermission){
     const p=await DeviceMotionEvent.requestPermission();
-    if(p!=='granted'){
-      alert("許可が必要です");
-      return;
-    }
+    if(p!=='granted') return;
   }
   window.addEventListener("devicemotion",motion);
   window.addEventListener("deviceorientation",orientation);
 };
 
-// ===== センサー処理 =====
+// ===== センサー =====
 function motion(e){
   const now=Date.now();
   if(!lastTime) lastTime=now;
@@ -120,54 +133,94 @@ function motion(e){
   pos.z+=vel.z*dt;
 
   updateCharts();
-
-  updateTargetBySensor(); // ←追加
+  updateTargetMove();   // ランダム移動
   checkHit();
 }
 
 function orientation(e){
   ori.alpha=e.alpha||0;
-  ori.beta=e.beta||0;
-  ori.gamma=e.gamma||0;
+  ori.beta=e.beta||0;   // 前後
+  ori.gamma=e.gamma||0; // 左右
 }
 
-// ===== ターゲットを傾きで動かす =====
-const target=document.getElementById("target");
-
-function updateTargetBySensor(){
+// ===== 垂直基準の操作 =====
+function getAimPosition(){
+  // 垂直にしたとき中央になるよう補正
   let x = window.innerWidth/2 + ori.gamma * 5;
-  let y = window.innerHeight/2 + ori.beta * 5;
+  let y = window.innerHeight/2 + (ori.beta - 90) * 5;
 
-  // 画面制限
-  x = Math.max(0, Math.min(window.innerWidth, x));
-  y = Math.max(0, Math.min(window.innerHeight, y));
+  return {x,y};
+}
 
-  // なめらか移動
-  targetPos.x += (x - targetPos.x)*0.2;
-  targetPos.y += (y - targetPos.y)*0.2;
+// ===== ターゲット ランダム移動 =====
+function updateTargetMove(){
+  let centerX = window.innerWidth/2;
+  let centerY = window.innerHeight/2;
+  let radius = 300;
 
-  target.style.left = targetPos.x + "px";
-  target.style.top = targetPos.y + "px";
+  // ランダム加速
+  targetVel.x += (Math.random()-0.5)*2;
+  targetVel.y += (Math.random()-0.5)*2;
+
+  // 摩擦
+  targetVel.x *= 0.95;
+  targetVel.y *= 0.95;
+
+  targetPos.x += targetVel.x;
+  targetPos.y += targetVel.y;
+
+  // 円内制限
+  let dx = targetPos.x-centerX;
+  let dy = targetPos.y-centerY;
+  let dist = Math.sqrt(dx*dx+dy*dy);
+
+  if(dist > radius){
+    let angle=Math.atan2(dy,dx);
+    targetPos.x=centerX+Math.cos(angle)*radius;
+    targetPos.y=centerY+Math.sin(angle)*radius;
+  }
+
+  target.style.left=targetPos.x+"px";
+  target.style.top=targetPos.y+"px";
 }
 
 // ===== 当たり判定 =====
-const crosshair=document.getElementById("crosshair");
-
 function checkHit(){
-  const cx = window.innerWidth/2;
-  const cy = window.innerHeight/2;
+  const aim=getAimPosition();
 
-  const dx = cx - targetPos.x;
-  const dy = cy - targetPos.y;
+  const dx = aim.x - targetPos.x;
+  const dy = aim.y - targetPos.y;
 
-  if(Math.abs(dx)<20 && Math.abs(dy)<20){
-    crosshair.style.borderColor="red";
-  }else{
-    crosshair.style.borderColor="lime";
-  }
+  isHit = Math.abs(dx)<20 && Math.abs(dy)<20;
+
+  crosshair.style.borderColor = isHit ? "red":"lime";
 }
 
-// ===== グラフ更新 =====
+// ===== タップ判定 =====
+document.body.addEventListener("click",()=>{
+  if(isHit){
+    score++;
+    document.getElementById("score").innerText="Score: "+score;
+    teleportTarget();
+  }
+});
+
+// ===== 瞬間移動 =====
+function teleportTarget(){
+  let centerX = window.innerWidth/2;
+  let centerY = window.innerHeight/2;
+  let radius = 300;
+
+  let angle = Math.random()*Math.PI*2;
+  let r = Math.random()*radius;
+
+  targetPos.x = centerX + Math.cos(angle)*r;
+  targetPos.y = centerY + Math.sin(angle)*r;
+
+  targetVel={x:0,y:0};
+}
+
+// ===== グラフ =====
 function push(arr,val){
   arr.push(val);
   if(arr.length>maxData) arr.shift();
@@ -204,7 +257,7 @@ function updateCharts(){
 }
 
 // ===== リセット =====
-document.getElementById("resetBtn").onclick = ()=>{
+document.getElementById("resetBtn").onclick=()=>{
   offset.acc={...acc};
   offset.pos={...pos};
   offset.ori={...ori};
