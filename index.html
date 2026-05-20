@@ -3,50 +3,46 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>センサーゲーム完成版</title>
+<title>傾きエイムゲーム</title>
 
-<!-- ✅ Chart.js 正しい読み込み -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { text-align:center; font-family:sans-serif; }
+body { text-align:center; font-family:sans-serif;}
 
-canvas { max-width: 90%; margin: 10px; }
+canvas { max-width:90%; margin:10px; }
 
-/* 中央マーカー */
-#crosshair {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  width: 30px;
-  height: 30px;
-  transform: translate(-50%, -50%);
-  border: 3px solid lime;
-  border-radius: 50%;
+/* 照準（動く） */
+#crosshair{
+  position:fixed;
+  width:30px;
+  height:30px;
+  border:3px solid lime;
+  border-radius:50%;
+  transform:translate(-50%,-50%);
 }
 
 /* ターゲット */
-#target {
-  position: fixed;
-  width: 20px;
-  height: 20px;
-  background: blue;
-  border-radius: 50%;
+#target{
+  position:fixed;
+  width:20px;
+  height:20px;
+  background:blue;
+  border-radius:50%;
 }
 
-/* スコア */
-#score {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  font-size: 20px;
+#score{
+  position:fixed;
+  top:10px;
+  left:10px;
+  font-size:20px;
 }
 </style>
 </head>
 
 <body>
 
-<h2>スマホエイムゲーム</h2>
+<h2>傾きエイムゲーム</h2>
 
 <button id="startBtn">開始</button>
 <button id="resetBtn">リセット</button>
@@ -61,25 +57,38 @@ canvas { max-width: 90%; margin: 10px; }
 <canvas id="oriChart"></canvas>
 
 <script>
-// ===== データ =====
+// ===== センサーデータ =====
 let acc={x:0,y:0,z:0};
 let vel={x:0,y:0,z:0};
 let pos={x:0,y:0,z:0};
 let ori={alpha:0,beta:0,gamma:0};
 
 let offset={acc:{},pos:{},ori:{}};
-let lastTime=null;
 
+// ===== 状態 =====
 let score=0;
 let isHit=false;
 
-// ===== ターゲット位置 =====
-let targetPos={
+// ===== 照準位置 =====
+let aimPos={
   x:window.innerWidth/2,
   y:window.innerHeight/2
 };
 
+// ===== ターゲット =====
+let targetPos={
+  x:window.innerWidth/2,
+  y:window.innerHeight/2
+};
 let targetVel={x:0,y:0};
+
+// ===== DOM =====
+const crosshair=document.getElementById("crosshair");
+const target=document.getElementById("target");
+
+// 初期位置
+crosshair.style.left=aimPos.x+"px";
+crosshair.style.top=aimPos.y+"px";
 
 // ===== グラフ =====
 const maxData=50;
@@ -99,15 +108,15 @@ function createChart(ctx){
   });
 }
 
-const accChart=createChart(document.getElementById('accChart'));
-const posChart=createChart(document.getElementById('posChart'));
-const oriChart=createChart(document.getElementById('oriChart'));
+const accChart=createChart(document.getElementById("accChart"));
+const posChart=createChart(document.getElementById("posChart"));
+const oriChart=createChart(document.getElementById("oriChart"));
 
 // ===== センサー開始 =====
-document.getElementById("startBtn").onclick = async ()=>{
+document.getElementById("startBtn").onclick=async()=>{
   if(DeviceMotionEvent.requestPermission){
     const p=await DeviceMotionEvent.requestPermission();
-    if(p!=='granted') return;
+    if(p!=="granted") return;
   }
   window.addEventListener("devicemotion",motion);
   window.addEventListener("deviceorientation",orientation);
@@ -115,25 +124,13 @@ document.getElementById("startBtn").onclick = async ()=>{
 
 // ===== センサー =====
 function motion(e){
-  const now=Date.now();
-  if(!lastTime) lastTime=now;
-  const dt=(now-lastTime)/1000;
-  lastTime=now;
-
   acc.x=e.accelerationIncludingGravity.x||0;
   acc.y=e.accelerationIncludingGravity.y||0;
   acc.z=e.accelerationIncludingGravity.z||0;
 
-  vel.x+=acc.x*dt;
-  vel.y+=acc.y*dt;
-  vel.z+=acc.z*dt;
-
-  pos.x+=vel.x*dt;
-  pos.y+=vel.y*dt;
-  pos.z+=vel.z*dt;
-
   updateCharts();
-  updateTargetMove();   // ランダム移動
+  updateTargetMove();
+  updateAimByTilt();
   checkHit();
 }
 
@@ -143,38 +140,42 @@ function orientation(e){
   ori.gamma=e.gamma||0; // 左右
 }
 
-// ===== 垂直基準の操作 =====
-function getAimPosition(){
-  // 垂直にしたとき中央になるよう補正
-  let x = window.innerWidth/2 + ori.gamma * 5;
-  let y = window.innerHeight/2 + (ori.beta - 90) * 5;
+// ===== 傾き → 照準 =====
+function updateAimByTilt(){
+  let sensitivity=5;
 
-  return {x,y};
+  // 垂直で中心になる補正
+  let x = window.innerWidth/2 + (ori.gamma - (offset.ori.gamma||0)) * sensitivity;
+  let y = window.innerHeight/2 + ((ori.beta-90) - (offset.ori.beta||0)) * sensitivity;
+
+  // なめらか化
+  aimPos.x += (x-aimPos.x)*0.2;
+  aimPos.y += (y-aimPos.y)*0.2;
+
+  crosshair.style.left=aimPos.x+"px";
+  crosshair.style.top=aimPos.y+"px";
 }
 
-// ===== ターゲット ランダム移動 =====
+// ===== ターゲットランダム移動 =====
 function updateTargetMove(){
-  let centerX = window.innerWidth/2;
-  let centerY = window.innerHeight/2;
-  let radius = 300;
+  let centerX=window.innerWidth/2;
+  let centerY=window.innerHeight/2;
+  let radius=300;
 
-  // ランダム加速
-  targetVel.x += (Math.random()-0.5)*2;
-  targetVel.y += (Math.random()-0.5)*2;
+  targetVel.x+=(Math.random()-0.5)*2;
+  targetVel.y+=(Math.random()-0.5)*2;
 
-  // 摩擦
-  targetVel.x *= 0.95;
-  targetVel.y *= 0.95;
+  targetVel.x*=0.95;
+  targetVel.y*=0.95;
 
-  targetPos.x += targetVel.x;
-  targetPos.y += targetVel.y;
+  targetPos.x+=targetVel.x;
+  targetPos.y+=targetVel.y;
 
-  // 円内制限
-  let dx = targetPos.x-centerX;
-  let dy = targetPos.y-centerY;
-  let dist = Math.sqrt(dx*dx+dy*dy);
+  let dx=targetPos.x-centerX;
+  let dy=targetPos.y-centerY;
+  let dist=Math.sqrt(dx*dx+dy*dy);
 
-  if(dist > radius){
+  if(dist>radius){
     let angle=Math.atan2(dy,dx);
     targetPos.x=centerX+Math.cos(angle)*radius;
     targetPos.y=centerY+Math.sin(angle)*radius;
@@ -186,17 +187,14 @@ function updateTargetMove(){
 
 // ===== 当たり判定 =====
 function checkHit(){
-  const aim=getAimPosition();
+  let dx=aimPos.x-targetPos.x;
+  let dy=aimPos.y-targetPos.y;
+  isHit=(Math.abs(dx)<20 && Math.abs(dy)<20);
 
-  const dx = aim.x - targetPos.x;
-  const dy = aim.y - targetPos.y;
-
-  isHit = Math.abs(dx)<20 && Math.abs(dy)<20;
-
-  crosshair.style.borderColor = isHit ? "red":"lime";
+  crosshair.style.borderColor=isHit?"red":"lime";
 }
 
-// ===== タップ判定 =====
+// ===== タップ =====
 document.body.addEventListener("click",()=>{
   if(isHit){
     score++;
@@ -207,15 +205,15 @@ document.body.addEventListener("click",()=>{
 
 // ===== 瞬間移動 =====
 function teleportTarget(){
-  let centerX = window.innerWidth/2;
-  let centerY = window.innerHeight/2;
-  let radius = 300;
+  let cx=window.innerWidth/2;
+  let cy=window.innerHeight/2;
+  let r=300;
 
-  let angle = Math.random()*Math.PI*2;
-  let r = Math.random()*radius;
+  let angle=Math.random()*Math.PI*2;
+  let dist=Math.random()*r;
 
-  targetPos.x = centerX + Math.cos(angle)*r;
-  targetPos.y = centerY + Math.sin(angle)*r;
+  targetPos.x=cx+Math.cos(angle)*dist;
+  targetPos.y=cy+Math.sin(angle)*dist;
 
   targetVel={x:0,y:0};
 }
